@@ -22,4 +22,9 @@ describe("checkModelPool", () => {
     expect(checkModelPool(pool, "github-copilot/gpt-5.6-terra", registry as never))
       .toContain("not in this agent's model_pool");
   });
+
+  it("rejects an unavailable pool default instead of allowing parent inheritance", () => {
+    expect(checkModelPool(["github-copilot/missing", "dbs/system.ai.claude-sonnet-5"], "github-copilot/missing", registry as never))
+      .toContain("Model not found");
+  });
 });

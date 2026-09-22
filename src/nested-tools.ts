@@ -239,7 +239,7 @@ export function createNestedSubagentTools(context: NestedToolContext): ToolDefin
         }
       }
 
-      const poolError = checkModelPool(config?.modelPool, params.model, ctx.modelRegistry);
+      const poolError = checkModelPool(config?.modelPool, invocation.modelInput, ctx.modelRegistry);
       if (poolError) return textResult(poolError, true);
 
       // Same scopeModels policy as the top-level Agent tool — a nested spawn

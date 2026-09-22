@@ -141,6 +141,41 @@ describe("the workflow host reports a child's effective configuration", () => {
     expect(result.error).toContain("model-diversity violation");
   });
 
+  it("releases a diversity reservation when startup fails", async () => {
+    const sonnet = { provider: "dbs", id: "system.ai.claude-sonnet-5", name: "Sonnet 5" };
+    registerAgents(new Map([
+      ["worker", {
+        name: "worker",
+        modelPool: ["dbs/system.ai.claude-sonnet-5", "github-copilot/gpt-5.6-terra"],
+        modelDiversityGroup: "implementation-review",
+      } as any],
+      ["reviewer", {
+        name: "reviewer",
+        modelPool: ["github-copilot/gpt-5.3-codex", "dbs/system.ai.claude-sonnet-5"],
+        modelDiversityGroup: "implementation-review",
+      } as any],
+    ]));
+    const failingManager = {
+      spawnAndWait: vi.fn().mockRejectedValue(new Error("startup failed")),
+      getRecord: vi.fn(),
+    } as any;
+    const host = createWorkflowHost({
+      pi,
+      ctx: ctx({ modelRegistry: { find: vi.fn(() => sonnet), getAvailable: vi.fn(() => [sonnet]) } }),
+      manager: failingManager,
+    });
+
+    await host.spawnAgent(spawnRequest({ agentType: "worker", model: "dbs/system.ai.claude-sonnet-5" }));
+    const result = await host.spawnAgent(spawnRequest({
+      agentId: "wf-agent-1",
+      agentType: "reviewer",
+      model: "dbs/system.ai.claude-sonnet-5",
+    }));
+
+    expect(failingManager.spawnAndWait).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ ok: false, error: "startup failed" });
+  });
+
   it("reports for an agent that named no model — the inherited case", async () => {
     childSessionReports({ model: { provider: "anthropic", id: "claude-sonnet-4-6" } });
     const host = createWorkflowHost({ pi, ctx: ctx({}), manager });

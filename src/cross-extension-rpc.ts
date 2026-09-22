@@ -115,6 +115,14 @@ export function registerRpcHandlers(deps: RpcDeps): RpcHandle {
       // agent's auth lookup doesn't crash with "No API key found for
       // undefined".
       let normalizedOptions = options ?? {};
+      const config = getAgentConfig(type);
+      const callerProvidedModel = normalizedOptions.model != null;
+      // A pool's default must resolve before this low-level path starts the
+      // child. Unlike a legacy `model:` pin, it may not silently inherit a
+      // parent model outside the declared pool.
+      if (!callerProvidedModel && config?.modelPool?.[0]) {
+        normalizedOptions = { ...normalizedOptions, model: config.modelPool[0] };
+      }
       // `!= null` on purpose: a JSON-forwarding caller can serialize an unset
       // field as null, and the runner reads `options.model ?? default`, so null
       // means "inherit" — not an override to resolve or scope-check.
@@ -140,7 +148,7 @@ export function registerRpcHandlers(deps: RpcDeps): RpcHandle {
           normalizedOptions = { ...normalizedOptions, model: resolved };
         }
 
-        const poolError = checkModelPool(getAgentConfig(type)?.modelPool, label, modelRegistry);
+        const poolError = checkModelPool(config?.modelPool, label, modelRegistry);
         if (poolError) throw new Error(poolError);
 
         // A model on the RPC payload is an orchestrator-level choice, exactly
@@ -153,7 +161,7 @@ export function registerRpcHandlers(deps: RpcDeps): RpcHandle {
           model,
           cwd: cwd ?? process.cwd(),
           modelRegistry,
-          callerSupplied: true,
+          callerSupplied: callerProvidedModel,
           agentLabel: type,
           modelInput: label,
         });

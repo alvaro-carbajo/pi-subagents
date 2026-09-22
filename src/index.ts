@@ -1820,7 +1820,7 @@ Terse command-style prompts produce shallow, generic work.
         }
       }
 
-      const poolError = checkModelPool(customConfig?.modelPool, params.model as string | undefined, ctx.modelRegistry);
+      const poolError = checkModelPool(customConfig?.modelPool, resolvedConfig.modelInput, ctx.modelRegistry);
       if (poolError) return textResult(poolError);
 
       // Scope validation: the effective resolved model is checked against the
