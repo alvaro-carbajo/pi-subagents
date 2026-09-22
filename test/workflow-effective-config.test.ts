@@ -109,6 +109,38 @@ describe("the workflow host reports a child's effective configuration", () => {
     expect((reported[0] as { modelName?: string }).modelName).toBeTruthy();
   });
 
+  it("rejects matching worker and reviewer models in one diversity group", async () => {
+    const sonnet = { provider: "dbs", id: "system.ai.claude-sonnet-5", name: "Sonnet 5" };
+    registerAgents(new Map([
+      ["worker", {
+        name: "worker",
+        modelPool: ["dbs/system.ai.claude-sonnet-5", "github-copilot/gpt-5.6-terra"],
+        modelDiversityGroup: "implementation-review",
+      } as any],
+      ["reviewer", {
+        name: "reviewer",
+        modelPool: ["github-copilot/gpt-5.3-codex", "dbs/system.ai.claude-sonnet-5"],
+        modelDiversityGroup: "implementation-review",
+      } as any],
+    ]));
+    childSessionReports({ model: sonnet });
+    const host = createWorkflowHost({
+      pi,
+      ctx: ctx({ modelRegistry: { find: vi.fn(() => sonnet), getAvailable: vi.fn(() => [sonnet]) } }),
+      manager,
+    });
+
+    await host.spawnAgent(spawnRequest({ agentType: "worker", model: "dbs/system.ai.claude-sonnet-5" }));
+    const result = await host.spawnAgent(spawnRequest({
+      agentId: "wf-agent-1",
+      agentType: "reviewer",
+      model: "dbs/system.ai.claude-sonnet-5",
+    }));
+
+    expect(result).toMatchObject({ ok: false });
+    expect(result.error).toContain("model-diversity violation");
+  });
+
   it("reports for an agent that named no model — the inherited case", async () => {
     childSessionReports({ model: { provider: "anthropic", id: "claude-sonnet-4-6" } });
     const host = createWorkflowHost({ pi, ctx: ctx({}), manager });

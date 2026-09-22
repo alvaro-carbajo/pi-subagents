@@ -36,6 +36,7 @@ import { existsSync } from "node:fs";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AgentManager } from "../agent-manager.js";
 import { getAgentConfig, resolveSpawnType } from "../agent-types.js";
+import { checkModelPool } from "../model-pool.js";
 import { resolveModel } from "../model-resolver.js";
 import { checkModelScope } from "../model-scope.js";
 import type { AgentRecord, ThinkingLevel } from "../types.js";
@@ -161,6 +162,9 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
   const { pi, ctx, manager } = deps;
   /** Runtime agent id → the manager record it spawned. Never pruned mid-run. */
   const records = new Map<string, string>();
+  // The key is a configured diversity group. Within a group, different agent
+  // types must not share a model in one workflow run.
+  const diversityModels = new Map<string, Map<string, string>>();
   /**
    * scopeModels warnings already toasted, so a fan-out that pins one
    * out-of-scope agent file raises one notification rather than one per child.
@@ -203,13 +207,29 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
       // back to the parent silently, because the script never asked for it.
       let model = ctx.model;
       const config = getAgentConfig(dispatch.type);
-      const modelInput = request.model ?? config?.model;
+      const modelInput = request.model ?? config?.modelPool?.[0] ?? config?.model;
       if (modelInput !== undefined) {
         const resolved = resolveModel(modelInput, ctx.modelRegistry);
         if (typeof resolved === "string") {
           if (request.model !== undefined) return { ok: false, error: resolved };
         } else {
           model = resolved;
+        }
+      }
+
+      const poolError = checkModelPool(config?.modelPool, request.model, ctx.modelRegistry);
+      if (poolError) return { ok: false, error: poolError };
+
+      const diversityGroup = config?.modelDiversityGroup;
+      const modelKey = model === undefined ? undefined : `${model.provider}/${model.id}`;
+      if (diversityGroup && modelKey) {
+        const existing = diversityModels.get(diversityGroup);
+        const matchingType = [...(existing ?? [])].find(([type, key]) => type !== dispatch.type && key === modelKey)?.[0];
+        if (matchingType) {
+          return {
+            ok: false,
+            error: `Workflow model-diversity violation: ${dispatch.type} and ${matchingType} both selected ${modelKey}.`,
+          };
         }
       }
 
@@ -289,6 +309,12 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
                 gate = { ok: false, output: error instanceof Error ? error.message : String(error) };
               }
             };
+
+      if (diversityGroup && modelKey) {
+        const group = diversityModels.get(diversityGroup) ?? new Map<string, string>();
+        group.set(dispatch.type, modelKey);
+        diversityModels.set(diversityGroup, group);
+      }
 
       try {
         const { record } = await manager.spawnAndWait(

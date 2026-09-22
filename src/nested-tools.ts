@@ -17,6 +17,7 @@ import {
 } from "./agent-types.js";
 import { loadCustomAgents } from "./custom-agents.js";
 import { isolationParam, resolveAgentInvocationConfig } from "./invocation-config.js";
+import { checkModelPool } from "./model-pool.js";
 import { resolveModel } from "./model-resolver.js";
 import { checkModelScope } from "./model-scope.js";
 import {
@@ -237,6 +238,9 @@ export function createNestedSubagentTools(context: NestedToolContext): ToolDefin
           model = resolvedModel;
         }
       }
+
+      const poolError = checkModelPool(config?.modelPool, params.model, ctx.modelRegistry);
+      if (poolError) return textResult(poolError, true);
 
       // Same scopeModels policy as the top-level Agent tool — a nested spawn
       // must not escape the allowlist. A "warn" verdict proceeds silently:

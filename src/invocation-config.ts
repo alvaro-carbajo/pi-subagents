@@ -99,6 +99,8 @@ export function resolveAgentInvocationConfig(
   opts?: ResolveOptions,
 ): {
   modelInput?: string;
+  /** The agent's pool, when one governs caller model selection. */
+  modelPool?: string[];
   modelFromParams: boolean;
   thinking?: ThinkingLevel;
   maxTurns?: number;
@@ -123,18 +125,21 @@ export function resolveAgentInvocationConfig(
   const requested = agentConfig?.isolation ?? params.isolation;
   const isolation = requested === "worktree" && opts?.worktreeAllowed !== false ? "worktree" : undefined;
 
+  const modelPool = agentConfig?.modelPool;
+  const pooledOverride = modelPool !== undefined && params.model !== undefined;
   const overriddenThinking = agentConfig?.thinking != null && params.thinking != null
     && agentConfig.thinking !== params.thinking
     ? params.thinking as ThinkingLevel
     : undefined;
-  const overriddenModel = agentConfig?.model != null && params.model != null
+  const overriddenModel = !modelPool && agentConfig?.model != null && params.model != null
     && agentConfig.model !== params.model
     ? params.model
     : undefined;
 
   return {
-    modelInput: agentConfig?.model ?? params.model,
-    modelFromParams: agentConfig?.model == null && params.model != null,
+    modelInput: pooledOverride ? params.model : (modelPool?.[0] ?? agentConfig?.model ?? params.model),
+    modelPool,
+    modelFromParams: pooledOverride || (agentConfig?.model == null && params.model != null),
     thinking: (agentConfig?.thinking ?? params.thinking) as ThinkingLevel | undefined,
     maxTurns: agentConfig?.maxTurns ?? params.max_turns,
     inheritContext: agentConfig?.inheritContext ?? params.inherit_context ?? false,

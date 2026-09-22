@@ -119,6 +119,8 @@ function loadFromDir(dir: string, agents: Map<string, AgentConfig>, source: "pro
       excludeExtensions: csvListOptional(fm.exclude_extensions),
       skills: inheritField(fm.skills ?? fm.inherit_skills),
       model: str(fm.model),
+      modelPool: parseCsvField(fm.model_pool),
+      modelDiversityGroup: str(fm.model_diversity_group),
       thinking: str(fm.thinking) as ThinkingLevel | undefined,
       maxTurns: nonNegativeInt(fm.max_turns),
       persistSession: fm.persist_session != null ? fm.persist_session === true : undefined,
