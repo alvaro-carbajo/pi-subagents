@@ -51,7 +51,12 @@ export interface AgentConfig {
   excludeExtensions?: string[];
   /** true = inherit all, string[] = only listed, false = none */
   skills: true | string[] | false;
+  /** Primary model. Kept for compatibility with agents that do not declare a pool. */
   model?: string;
+  /** Ordered model choices. The first entry is the default; callers may select any entry. */
+  modelPool?: string[];
+  /** Workflow agents sharing this group must use distinct models across agent types. */
+  modelDiversityGroup?: string;
   thinking?: ThinkingLevel;
   maxTurns?: number;
   /** Persist this subagent as a normal pi session instead of keeping it in memory only. */

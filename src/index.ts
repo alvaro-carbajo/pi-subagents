@@ -28,6 +28,7 @@ import { GroupJoinManager } from "./group-join.js";
 import { isolationParam, resolveAgentInvocationConfig, resolveJoinMode } from "./invocation-config.js";
 import { describeMention, handleBase, isReservedHandle, parseMention, resolveHandleToType, stripAgentPrefix } from "./mention.js";
 import { runMentionClone } from "./mention-clone.js";
+import { checkModelPool } from "./model-pool.js";
 import { describeModel, type ModelRegistry, resolveModel } from "./model-resolver.js";
 import { checkModelScope, isScopeModelsEnabled, setScopeModelsEnabled } from "./model-scope.js";
 import { getMaxSubagentDepth, setMaxSubagentDepth } from "./nested-tools.js";
@@ -1818,6 +1819,9 @@ Terse command-style prompts produce shallow, generic work.
           model = resolved;
         }
       }
+
+      const poolError = checkModelPool(customConfig?.modelPool, params.model as string | undefined, ctx.modelRegistry);
+      if (poolError) return textResult(poolError);
 
       // Scope validation: the effective resolved model is checked against the
       // user's enabledModels list. Policy (hard error vs warn-and-proceed) lives

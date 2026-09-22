@@ -14,6 +14,8 @@
  */
 
 import { isTopLevelAgent } from "./agent-manager.js";
+import { getAgentConfig } from "./agent-types.js";
+import { checkModelPool } from "./model-pool.js";
 import { type ModelRegistry, resolveModel } from "./model-resolver.js";
 import { checkModelScope } from "./model-scope.js";
 import type { AgentRecord } from "./types.js";
@@ -137,6 +139,9 @@ export function registerRpcHandlers(deps: RpcDeps): RpcHandle {
           model = resolved;
           normalizedOptions = { ...normalizedOptions, model: resolved };
         }
+
+        const poolError = checkModelPool(getAgentConfig(type)?.modelPool, label, modelRegistry);
+        if (poolError) throw new Error(poolError);
 
         // A model on the RPC payload is an orchestrator-level choice, exactly
         // like Agent({ model }) — so it gets the Agent tool's hard error, never

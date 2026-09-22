@@ -51,6 +51,20 @@ describe("resolveAgentInvocationConfig", () => {
     expect(resolved.isolation).toBe("worktree");
   });
 
+  it("lets a caller select a model from an agent pool", () => {
+    const resolved = resolveAgentInvocationConfig(
+      makeConfig({
+        model: "provider/default",
+        modelPool: ["provider/default", "provider/alternate"],
+      }),
+      { model: "provider/alternate" },
+    );
+
+    expect(resolved.modelInput).toBe("provider/alternate");
+    expect(resolved.modelPool).toEqual(["provider/default", "provider/alternate"]);
+    expect(resolved.modelFromParams).toBe(true);
+  });
+
   it("uses tool-call params when no agent config is available", () => {
     const resolved = resolveAgentInvocationConfig(undefined, {
       model: "provider/param-model",
