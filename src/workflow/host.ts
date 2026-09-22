@@ -217,7 +217,7 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
         }
       }
 
-      const poolError = checkModelPool(config?.modelPool, request.model, ctx.modelRegistry);
+      const poolError = checkModelPool(config?.modelPool, modelInput, ctx.modelRegistry);
       if (poolError) return { ok: false, error: poolError };
 
       const diversityGroup = config?.modelDiversityGroup;
@@ -310,6 +310,9 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
               }
             };
 
+      const previousDiversityModel = diversityGroup && modelKey
+        ? diversityModels.get(diversityGroup)?.get(dispatch.type)
+        : undefined;
       if (diversityGroup && modelKey) {
         const group = diversityModels.get(diversityGroup) ?? new Map<string, string>();
         group.set(dispatch.type, modelKey);
@@ -373,6 +376,14 @@ export function createWorkflowHost(deps: WorkflowHostOptions): WorkflowHost {
         );
         return { ...toSpawnResult(record), ...(gate !== undefined ? { gate } : {}) };
       } catch (error) {
+        if (diversityGroup && modelKey) {
+          const group = diversityModels.get(diversityGroup);
+          if (group) {
+            if (previousDiversityModel === undefined) group.delete(dispatch.type);
+            else group.set(dispatch.type, previousDiversityModel);
+            if (group.size === 0) diversityModels.delete(diversityGroup);
+          }
+        }
         // Strict worktree isolation rejects out of `awaitStartup` — the child
         // never ran. That is this agent's failure, not the run's: the script
         // sees `null` and its siblings carry on.
